@@ -4,42 +4,20 @@ from chatapp.services.utils import get_data
 from chatapp.services.ai import ask_llama
 
 from chatapp.services.utils import semantic_search
-from django.http import JsonResponse
+
+from chatapp.services.utils import get_categories
+
+from chatapp.models import Category
 
 def chat_ui(request):
     return render(request, "chat.html")
 
+# ✅ keep this
 def chatbot(request):
     user_msg = request.GET.get("msg")
 
-    db_data = get_data(user_msg)
-
-    prompt = f"""
-You are a strict database assistant.
-
-Rules:
-1. Answer ONLY from given data.
-2. Do NOT use your own knowledge.
-3. Do NOT explain anything extra.
-4. If data not found → say "No data found in database".
-
-DATA:
-{db_data}
-
-Question: {user_msg}
-"""
-
-    answer = ask_llama(prompt)
-
-    return JsonResponse({"reply": answer})
-
-def chatbot(request):
-    user_msg = request.GET.get("msg")
-
-    # AI search
     db_data = semantic_search(user_msg)
 
-    # strict prompt
     prompt = f"""
 You are a strict assistant.
 
@@ -52,3 +30,24 @@ Question: {user_msg}
     answer = ask_llama(prompt)
 
     return JsonResponse({"reply": answer})
+
+
+def category_list(request):
+    page = int(request.GET.get("page", 1))
+    limit = 10
+
+    start = (page - 1) * limit
+    end = start + limit
+
+    categories = Category.objects.all()[start:end]
+    total = Category.objects.count()
+
+    data = []
+
+    for c in categories:
+        data.append(c.name)
+
+    return JsonResponse({
+        "total": total,
+        "categories": data
+    })

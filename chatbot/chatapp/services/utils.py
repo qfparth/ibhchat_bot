@@ -1,5 +1,99 @@
 from sentence_transformers import SentenceTransformer, util
 from chatapp.models import User
+from chatapp.models import Category
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+def get_all_data():
+    data_list = []
+
+    users = User.objects.select_related('category').all()
+
+    for u in users:
+        try:
+            text = f"{u.business_name} is a {u.category.name} service in {u.city}"
+        except:
+            text = f"{u.business_name} is a service in {u.city}"
+
+        data_list.append(text)
+
+    return data_list
+
+
+DATA_LIST = get_all_data()
+DATA_EMBEDDINGS = model.encode(DATA_LIST, convert_to_tensor=True)
+
+
+
+#--------- SentanceTransfor ------------
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+def semantic_search(user_msg):
+
+    global DATA_LIST, DATA_EMBEDDINGS
+
+    msg = user_msg.lower()
+
+    # 🔥 LOAD ONLY FIRST TIME
+    if DATA_LIST is None:
+
+        users = User.objects.select_related('category').all()
+
+        DATA_LIST = []
+
+        for u in users:
+            try:
+                text = f"{u.business_name} is a {u.category.name} service in {u.city}"
+            except:
+                text = f"{u.business_name} is a service in {u.city}"
+
+            DATA_LIST.append(text)
+
+        # 👉 embeddings only once
+        DATA_EMBEDDINGS = model.encode(DATA_LIST, convert_to_tensor=True)
+
+    # 👉 query embedding
+    query_embedding = model.encode(msg, convert_to_tensor=True)
+
+    scores = util.cos_sim(query_embedding, DATA_EMBEDDINGS)[0]
+
+    sorted_results = scores.argsort(descending=True)
+
+    results = ""
+
+    for idx in sorted_results[:50]:
+        results += DATA_LIST[int(idx)] + "\n"
+
+    return results
+
+
+def get_company_data():
+    data_list = []
+
+    companies = User.objects.select_related('category').all()
+
+    for c in companies:
+        text = f"{c.business_name} is a {c.category.name} company in {c.city}"
+        data_list.append(text)
+
+    return data_list
+
+
+def get_categories(page=1, limit=10):
+    start = (page - 1) * limit
+    end = start + limit
+
+    total = Category.objects.count()
+    categories = Category.objects.all()[start:end]
+
+    data = []
+    for c in categories:
+        data.append(c.name)
+
+    return {
+        "total": total,
+        "categories": data
+    }
 
 
 def get_data(user_msg):
@@ -29,33 +123,3 @@ def get_data(user_msg):
 
 
 
-
-def get_all_data():
-    data_list = []
-
-    users = User.objects.select_related('category').all()
-
-    for u in users:
-        text = f"{u.business_name} is a {u.category.name} service in {u.city}"
-        data_list.append(text)
-
-    return data_list
-
-
-model = SentenceTransformer('all-MiniLM-L6-v2')
-
-def semantic_search(user_msg):
-    data_list = get_all_data()
-
-    data_embeddings = model.encode(data_list, convert_to_tensor=True)
-    query_embedding = model.encode(user_msg, convert_to_tensor=True)
-
-    scores = util.cos_sim(query_embedding, data_embeddings)[0]
-
-    top_results = scores.topk(5)
-
-    results = ""
-    for idx in top_results.indices:
-        results += data_list[int(idx)] + "\n"
-
-    return results

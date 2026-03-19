@@ -189,51 +189,131 @@
       </div>
 
       <script>
-         let input=document.getElementById("question")
+         let input = document.getElementById("question")
 
-         input.addEventListener("keypress",function(e){
-         if(e.key==="Enter") sendMessage()
+         // 🔥 pagination state
+         let currentPage = 1
+
+         input.addEventListener("keypress", function(e){
+            if(e.key==="Enter") sendMessage()
          })
 
          function sendMessage(){
-         let question=input.value
-         if(question.trim()=="") return
-         let chatBox=document.getElementById("chat-box")
+            let question = input.value
+            if(question.trim()=="") return
 
-         /* user message */
-         let user=document.createElement("div")
-         user.className="message user"
-         user.innerText=question
+            let chatBox = document.getElementById("chat-box")
 
-         chatBox.appendChild(user)
+            // 👉 user message
+            let user = document.createElement("div")
+            user.className="message user"
+            user.innerText=question
+            chatBox.appendChild(user)
 
-         input.value=""
-         scrollBottom()
-
-         /* bot thinking */
-
-         let bot=document.createElement("div")
-         bot.className="message bot"
-
-         bot.innerHTML=`
-         <div class="loader">
-         <div class="spinner"></div>
-         AI is thinking...
-         </div>
-         `
-
-         chatBox.appendChild(bot)
+            input.value=""
             scrollBottom()
+
+            // 👉 bot loading
+            let bot=document.createElement("div")
+            bot.className="message bot"
+
+            bot.innerHTML=`
+            <div class="loader">
+               <div class="spinner"></div>
+               AI is thinking...
+            </div>
+            `
+            chatBox.appendChild(bot)
+            scrollBottom()
+
+            let msg = question.toLowerCase()
+
+            // 🔥 SHOW CATEGORIES
+            if(msg.includes("categories")){
+               currentPage = 1
+               loadCategories(bot)
+               return
+            }
+
+           /* if(msg.includes("business")){
+
+               fetch("/chatbot/?msg=" + encodeURIComponent(question))
+               .then(res=>res.json())
+               .then(data=>{
+                  bot.innerHTML=""
+
+                  let text = data.reply || "No response"
+
+                  typeEffect(text, bot)
+               })
+               .catch(err=>{
+                  bot.innerHTML="Error ❌"
+                  console.log(err)
+               })
+
+               return
+         }*/
+
+            // 🔥 NEXT PAGE
+            if(msg.includes("next")){
+               currentPage++
+               loadCategories(bot)
+               return
+            }
+
+            // 🔥 PREVIOUS PAGE
+            if(msg.includes("prev")){
+               if(currentPage > 1){
+                     currentPage--
+               }
+               loadCategories(bot)
+               return
+            }
+
+            // 🤖 NORMAL AI CALL
             fetch("/chatbot/?msg=" + encodeURIComponent(question))
             .then(res=>res.json())
             .then(data=>{
                bot.innerHTML=""
-               //typeEffect(data.response,bot)
-               let text = data.reply || "No response from server";
+               let text = data.reply || "No response from server"
                typeEffect(text, bot)
-               })
+            })
          }
 
+
+         // 🔥 CATEGORY LOADER (AI + DB MIX)
+         function loadCategories(bot){
+
+            fetch(`/categories/?page=${currentPage}`)
+            .then(res=>res.json())
+            .then(data=>{
+
+               let totalPages = Math.ceil(data.total / 10)
+
+               // 👉 AI style formatting text
+               let rawText = `Total Categories: ${data.total}
+         Page: ${currentPage}/${totalPages}
+
+         Categories:
+         `
+
+               data.categories.forEach(c=>{
+                     rawText += "- " + c + "\n"
+               })
+
+               rawText += "\nType 'next' or 'prev' to navigate."
+
+               // 👉 typing effect
+               bot.innerHTML=""
+               typeEffect(rawText, bot)
+            })
+            .catch(err=>{
+               bot.innerHTML="Error loading categories ❌"
+               console.log(err)
+            })
+         }
+
+         //  typing animation
          function typeEffect(text,element){
             let i=0
             let typing=setInterval(function(){
@@ -241,34 +321,18 @@
                i++
 
                if(i>=text.length){
-                  clearInterval(typing)
+                     clearInterval(typing)
                }
                scrollBottom()
-            },30)
+            },20)
          }
 
+         // 📜 scroll
          function scrollBottom(){
             let chatBox=document.getElementById("chat-box")
             chatBox.scrollTop=chatBox.scrollHeight
-
          }
-
-         /* function getAI(){
-            let box = document.getElementById("ai-result");
-            box.innerText = "AI is thinking... ⏳";
-
-            fetch("/get-response/?question=admin improve")   // ✅ correct URL
-            .then(res => res.json())
-            .then(data => {
-               console.log(data);
-               box.innerText = data.response;   // ✅ IMPORTANT
-            })
-            .catch(err => {
-               box.innerText = "Error ❌";
-               console.error(err);
-            });
-         }*/
-      </script>
+         </script>
 
    </body>
 </html>
