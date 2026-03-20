@@ -7,7 +7,6 @@ class ChatApp(models.Model):
     answer = models.TextField()
     is_answered = models.BooleanField(default=False)
 
-
     def __str__(self):
         return self.question
     
@@ -22,11 +21,19 @@ class Category(models.Model):
         
         return self.name
     
+
+class City(models.Model):
+    city = models.CharField(max_length=200,default=True)
+    
+    class Meta:
+        db_table="cities"
+    
 class User(models.Model):
     business_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=20)
     address = models.TextField()
-    city = models.TextField()
+    city = models.ForeignKey(City,on_delete=models.CASCADE,db_column="city")
+    
     category = models.ForeignKey(Category,
         on_delete=models.CASCADE,
         db_column="category_id"
@@ -35,15 +42,6 @@ class User(models.Model):
     class Meta:
         db_table = "users"
         managed = False
-
-
-
-class City(models.Model):
-    city = models.CharField(max_length=200,default=True)
-    
-    class Meta:
-        db_table="cities"
-    
 
     
 class Company(models.Model):
