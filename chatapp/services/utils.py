@@ -3,8 +3,11 @@ from chatapp.models import User
 from chatapp.models import Category
 from chatapp.services.ai import ask_llama
 
+import json
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
 
 
 def generate_query(user_msg):
@@ -12,77 +15,64 @@ def generate_query(user_msg):
     prompt = f"""
 You are a Django ORM expert.
 
-Convert user question into Django ORM filter.
+Convert user question into Django ORM filter in JSON format.
 
 STRICT RULES:
-- Only return filter
-- No sentence
+- Return ONLY valid JSON
 - No explanation
-- No "Here is..."
-- No backticks `
-- Output must be ONE LINE
+- No text
+- No backticks
+- Keys must match Django ORM
 
 Example:
-city__icontains="ahmedabad",category__name__icontains="apparel"
+{{
+  "city__city__icontains": "ahmedabad",
+  "category__name__icontains": "apparel"
+}}
 
 User Question: {user_msg}
 """
 
-    query = ask_llama(prompt)
+    response = ask_llama(prompt)
 
-    return query.strip() if query else ""
+    try:
+        return json.loads(response)
+    except:
+        print("JSON Error:", response)
+        return {}
 
 
 
 def get_dynamic_data(user_msg):
 
-    allowed_fields = [
-    "city__icontains",
-    "city__city__icontains",
-    "category__name__icontains",
-    "business_name__icontains"
-]
+    query_dict = generate_query(user_msg)
 
-
-
-    query = generate_query(user_msg)
-    if not query:
-        print("AI returned None")
+    if not query_dict:
         return ""
-    
-    query = query.replace("```", "")
-    query = query.replace("python", "")
-    query = query.replace("Here is the Django ORM filter:", "")
-    query = query.replace("Here is", "")
-    query = query.replace("filter:", "")
-    query = query.replace("`", "")
-    query = query.strip()
+
+    # 🔒 allowed fields (security)
+    allowed_fields = [
+        "city__city__icontains",
+        "category__name__icontains",
+        "business_name__icontains"
+    ]
+
+    safe_query = {}
+
+    for key, value in query_dict.items():
+        if key in allowed_fields:
+            safe_query[key] = value
 
     try:
-        filter_dict = {}
-        parts = query.split(",")
-
-        for p in parts:
-            if "=" in p:
-                key, value = p.split("=", 1)
-
-                key = key.strip()
-                value = value.strip().replace('"', '')
-                if key in allowed_fields:
-                    filter_dict[key] = value
-
-        # AUTO FIX FOR CITY
-        if "city__icontains" in filter_dict:
-            filter_dict["city__city__icontains"] = filter_dict["city__icontains"]
-            del filter_dict["city__icontains"]
-
-        users = User.objects.select_related("category","city").filter(
-            **filter_dict, category__isnull=False, city__isnull=False
+        users = User.objects.select_related("category", "city").filter(
+            **safe_query,
+            category__isnull=False,
+            city__isnull=False
         )[:20]
 
     except Exception as e:
         print("Query Error:", e)
-        users = User.objects.all()[:20]
+        users = User.objects.select_related("category", "city").all()[:20]
 
     data = ""
 
@@ -106,16 +96,18 @@ def get_dynamic_data(user_msg):
 def detect_intent(user_msg):
 
     prompt = f"""
-Classify this user message into ONE of these:
+You are a Django ORM expert.
 
-- categories
-- pagination
-- search
-- normal
+Convert user question into Django ORM filter in JSON.
 
-Message: {user_msg}
+Rules:
+- If city mentioned → use city__city__icontains
+- If category → category__name__icontains
+- If name → business_name__icontains
 
-Only return the intent name.
+Return ONLY JSON.
+
+User Question: {user_msg}
 """
 
     intent = ask_llama(prompt)
