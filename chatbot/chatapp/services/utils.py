@@ -1,8 +1,31 @@
 from sentence_transformers import SentenceTransformer, util
 from chatapp.models import User
 from chatapp.models import Category
+from chatapp.services.ai import ask_llama
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
+
+
+
+def detect_intent(user_msg):
+
+    prompt = f"""
+Classify this user message into ONE of these:
+
+- categories
+- pagination
+- search
+- normal
+
+Message: {user_msg}
+
+Only return the intent name.
+"""
+
+    intent = ask_llama(prompt)
+
+    return intent.strip().lower()
+
 
 def get_all_data():
     data_list = []
@@ -49,10 +72,10 @@ def semantic_search(user_msg):
 
             DATA_LIST.append(text)
 
-        # 👉 embeddings only once
+        # embeddings only once
         DATA_EMBEDDINGS = model.encode(DATA_LIST, convert_to_tensor=True)
 
-    # 👉 query embedding
+    # query embedding
     query_embedding = model.encode(msg, convert_to_tensor=True)
 
     scores = util.cos_sim(query_embedding, DATA_EMBEDDINGS)[0]
@@ -120,6 +143,7 @@ def get_data(user_msg):
         data += f"Business: {u.business_name}, Category: {u.category.name}, City: {u.city}\n"
 
     return data
+
 
 
 

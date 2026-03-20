@@ -1,26 +1,47 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from chatapp.services.utils import get_data
+
 from chatapp.services.ai import ask_llama
-
-from chatapp.services.utils import semantic_search
-
-from chatapp.services.utils import get_categories
+from chatapp.services.utils import semantic_search, detect_intent, get_categories
 
 from chatapp.models import Category
+
+
 
 def chat_ui(request):
     return render(request, "chat.html")
 
-# ✅ keep this
+
 def chatbot(request):
+
     user_msg = request.GET.get("msg")
 
-    db_data = semantic_search(user_msg)
+    intent = detect_intent(user_msg)
 
+    print("Intent:", intent)   # debug (optional)
+
+    # CATEGORY
+    if "categories" in intent:
+        data = get_categories()
+        return JsonResponse({
+            "reply": f"Total Categories: {data['total']}\n\n" + "\n".join(data['categories'])
+        })
+
+    # PAGINATION
+    elif "pagination" in intent:
+        return JsonResponse({"reply": "👉 Please type 'next' or 'prev'"})
+
+    # SEARCH (main feature)
+    elif "search" in intent:
+        db_data = semantic_search(user_msg)
+
+    # NORMAL
+    else:
+        db_data = semantic_search(user_msg)
+
+    # LLM answer
     prompt = f"""
-You are a strict assistant.
-
 Answer ONLY from this data:
 {db_data}
 
