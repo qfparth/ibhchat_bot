@@ -8,7 +8,6 @@ from chatapp.services.utils import semantic_search, detect_intent, get_categorie
 from chatapp.models import Category
 
 
-
 def chat_ui(request):
     return render(request, "chat.html")
 
@@ -19,14 +18,17 @@ def chatbot(request):
 
     intent = detect_intent(user_msg)
 
-    print("Intent:", intent)   # debug (optional)
+    print("Intent:", intent)  # debug (optional)
 
     # CATEGORY
     if "categories" in intent:
         data = get_categories()
-        return JsonResponse({
-            "reply": f"Total Categories: {data['total']}\n\n" + "\n".join(data['categories'])
-        })
+        return JsonResponse(
+            {
+                "reply": f"Total Categories: {data['total']}\n\n"
+                + "\n".join(data["categories"])
+            }
+        )
 
     # PAGINATION
     elif "pagination" in intent:
@@ -68,7 +70,4 @@ def category_list(request):
     for c in categories:
         data.append(c.name)
 
-    return JsonResponse({
-        "total": total,
-        "categories": data
-    })
+    return JsonResponse({"total": total, "categories": data})

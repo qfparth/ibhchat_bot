@@ -3,8 +3,7 @@ from chatapp.models import User
 from chatapp.models import Category
 from chatapp.services.ai import ask_llama
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
-
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def detect_intent(user_msg):
@@ -30,7 +29,7 @@ Only return the intent name.
 def get_all_data():
     data_list = []
 
-    users = User.objects.select_related('category').all()
+    users = User.objects.select_related("category").all()
 
     for u in users:
         try:
@@ -47,9 +46,9 @@ DATA_LIST = get_all_data()
 DATA_EMBEDDINGS = model.encode(DATA_LIST, convert_to_tensor=True)
 
 
+# --------- SentanceTransfor ------------
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-#--------- SentanceTransfor ------------
-model = SentenceTransformer('all-MiniLM-L6-v2')
 
 def semantic_search(user_msg):
 
@@ -60,7 +59,7 @@ def semantic_search(user_msg):
     # 🔥 LOAD ONLY FIRST TIME
     if DATA_LIST is None:
 
-        users = User.objects.select_related('category').all()
+        users = User.objects.select_related("category").all()
 
         DATA_LIST = []
 
@@ -93,7 +92,7 @@ def semantic_search(user_msg):
 def get_company_data():
     data_list = []
 
-    companies = User.objects.select_related('category').all()
+    companies = User.objects.select_related("category").all()
 
     for c in companies:
         text = f"{c.business_name} is a {c.category.name} company in {c.city}"
@@ -113,10 +112,7 @@ def get_categories(page=1, limit=10):
     for c in categories:
         data.append(c.name)
 
-    return {
-        "total": total,
-        "categories": data
-    }
+    return {"total": total, "categories": data}
 
 
 def get_data(user_msg):
@@ -143,7 +139,3 @@ def get_data(user_msg):
         data += f"Business: {u.business_name}, Category: {u.category.name}, City: {u.city}\n"
 
     return data
-
-
-
-
