@@ -1,0 +1,30 @@
+{% comment %} <button onclick="getAI()">AI Suggestion</button>
+
+<div id="ai-result" style="margin-top:20px; white-space:pre-line;"></div>
+<script>
+function getAI(){
+    fetch("/admin-ai/")
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("ai-result").innerText = data.response;
+    });
+}
+
+function getAI(){
+
+    let box = document.getElementById("ai-result");
+
+    box.innerText = "AI is thinking... ⏳";
+
+    fetch("/get-response/?question=admin improve")   // ✅ correct URL
+    .then(res => res.json())
+    .then(data => {
+        console.log(data);   // 🔥 debug
+        box.innerText = data.response;   // ✅ IMPORTANT
+    })
+    .catch(err => {
+        box.innerText = "Error ❌";
+        console.error(err);
+    });
+}
+</script> {% endcomment %}
