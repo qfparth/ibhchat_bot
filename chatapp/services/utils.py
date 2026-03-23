@@ -88,13 +88,9 @@ def is_safe_sql(sql: str) -> bool:
 
 
 # ─────────────────────────────────────────────
-# STEP 1 — Text2SQL: LLaMA generates SQL
+# Text2SQL: LLaMA generates SQL
 # ─────────────────────────────────────────────
 def generate_sql(user_msg: str) -> str:
-    """
-    Ask LLaMA to convert natural language question → safe MySQL SELECT query.
-    Returns empty string on failure.
-    """
     prompt = f"""
 {DB_SCHEMA}
 
@@ -143,7 +139,6 @@ SQL:
 """
     try:
         response = ask_llama(prompt).strip()
-        # Clean up any accidental markdown
         response = re.sub(r"```sql|```", "", response).strip()
         if response.upper() == "NONE" or not response:
             return ""
@@ -154,13 +149,9 @@ SQL:
 
 
 # ─────────────────────────────────────────────
-# STEP 2 — Execute SQL safely
+# Execute SQL safely
 # ─────────────────────────────────────────────
 def run_sql(sql: str) -> str:
-    """
-    Execute a SELECT query and return results as a formatted string.
-    Returns empty string if unsafe or no results.
-    """
     if not sql or not is_safe_sql(sql):
         logger.warning("Blocked unsafe SQL: %s", sql)
         return ""
@@ -174,7 +165,6 @@ def run_sql(sql: str) -> str:
         if not rows:
             return ""
 
-        # Format as readable text for LLaMA context
         lines = []
         for row in rows:
             parts = [f"{col}: {val}" for col, val in zip(columns, row) if val is not None]
@@ -188,7 +178,7 @@ def run_sql(sql: str) -> str:
 
 
 # ─────────────────────────────────────────────
-# STEP 3 — ORM fallback (simple filters)
+# ORM fallback (simple filters)
 # ─────────────────────────────────────────────
 def generate_query(user_msg: str) -> dict:
     prompt = f"""
@@ -219,7 +209,6 @@ User Question: {user_msg}
 
 
 def get_dynamic_data(user_msg: str) -> str:
-    """ORM-based fallback for simple user/category/city searches."""
     query_dict = generate_query(user_msg)
 
     try:
@@ -243,7 +232,6 @@ def get_dynamic_data(user_msg: str) -> str:
                 category__isnull=False,
                 city__isnull=False,
                 is_active=1,
-                deleted_at__isnull=True,
             )[:limit]
         )
     except Exception as e:
@@ -266,7 +254,7 @@ def get_dynamic_data(user_msg: str) -> str:
 
 
 # ─────────────────────────────────────────────
-# STEP 4 — Semantic search (lazy-loaded cache)
+# Semantic search (lazy-loaded cache)
 # ─────────────────────────────────────────────
 def _load_embeddings():
     global DATA_LIST, DATA_EMBEDDINGS
@@ -274,7 +262,7 @@ def _load_embeddings():
     users = (
         User.objects
         .select_related("category", "city")
-        .filter(is_active=1, deleted_at__isnull=True)
+        .filter(is_active=1)
     )
     texts = []
     for u in users:
@@ -313,12 +301,101 @@ def reload_embeddings():
 
 
 # ─────────────────────────────────────────────
-# INTENT DETECTION
+# FAST KEYWORD MATCHER — runs before LLaMA
+# ─────────────────────────────────────────────
+GREETING_WORDS = {
+    "hi", "hello", "hey", "helo", "hii", "hiii",
+    "good morning", "good afternoon", "good evening",
+    "good night", "howdy", "greetings", "sup", "what's up",
+    "whats up", "namaste", "namaskar", "hi there", "hello there",
+    "hi good morning", "hello good morning", "hey good morning",
+    "good morning everyone", "good evening everyone",
+}
+
+FAREWELL_WORDS = {
+    "bye", "goodbye", "good bye", "see you", "see ya",
+    "take care", "later", "cya", "ttyl", "farewell"
+}
+
+THANKS_WORDS = {
+    "thanks", "thank you", "thank you so much", "thx",
+    "ty", "appreciated", "cheers", "dhanyawad", "shukriya"
+}
+
+HELP_WORDS = {
+    "help", "what can you do", "how to use", "what is this",
+    "how does this work", "guide me", "assist me",
+    "what do you do", "how can you help"
+}
+
+GENERAL_TRIGGERS = [
+    "how to", "how do i", "how can i", "how should i",
+    "tips for", "tips on", "advice", "suggest", "suggestion",
+    "best way", "best ways", "best practice", "best strategies",
+    "what is", "what are", "explain", "tell me about",
+    "improve", "grow", "increase", "boost", "help me with",
+    "why is", "why do", "benefits of", "difference between",
+    "how does", "what does", "guide", "strategy", "strategies",
+    "marketing", "digital marketing", "social media",
+    "get more customers", "attract customers",
+]
+
+
+def fast_intent(user_msg: str) -> str | None:
+    msg = user_msg.lower().strip()
+
+    # ── Exact match first ──
+    if msg in GREETING_WORDS:
+        return "greeting"
+    if msg in FAREWELL_WORDS:
+        return "farewell"
+    if msg in THANKS_WORDS:
+        return "thanks"
+    if msg in HELP_WORDS:
+        return "help"
+
+    # ── Partial / starts-with match ──
+    greeting_triggers = [
+        "hi", "hello", "hey", "good morning", "good afternoon",
+        "good evening", "good night", "namaste", "namaskar", "greetings"
+    ]
+    farewell_triggers = ["bye", "goodbye", "see you", "take care", "farewell"]
+    thanks_triggers   = ["thank", "thanks", "thx", "appreciated", "dhanyawad"]
+    help_triggers     = ["what can you do", "how to use", "what do you do"]
+
+    for trigger in greeting_triggers:
+        if msg == trigger or msg.startswith(trigger + " ") or trigger in msg:
+            return "greeting"
+
+    for trigger in farewell_triggers:
+        if msg == trigger or msg.startswith(trigger):
+            return "farewell"
+
+    for trigger in thanks_triggers:
+        if trigger in msg:
+            return "thanks"
+
+    for trigger in help_triggers:
+        if trigger in msg:
+            return "help"
+
+    # ── General knowledge check — BEFORE LLaMA ──
+    for trigger in GENERAL_TRIGGERS:
+        if msg.startswith(trigger) or f" {trigger} " in f" {msg} ":
+            return "general"
+
+    return None
+
+
+# ─────────────────────────────────────────────
+# INTENT DETECTION — keyword first, LLaMA second
 # ─────────────────────────────────────────────
 def detect_intent(user_msg: str) -> str:
-    """
-    Returns: 'greeting' | 'farewell' | 'thanks' | 'help' | 'search' | 'unknown'
-    """
+    quick = fast_intent(user_msg)
+    if quick:
+        logger.info("Fast intent matched: %s", quick)
+        return quick
+
     prompt = f"""
 You are an intent classifier for a business directory chatbot.
 
@@ -327,8 +404,18 @@ Classify the user message into exactly one of these intents:
 - "farewell"  → bye, goodbye, see you, take care, etc.
 - "thanks"    → thank you, thanks, thx, appreciated, etc.
 - "help"      → what can you do, how to use, help me, etc.
-- "search"    → looking for a business, service, category, city, visits, stats
+- "search"    → looking for a business, service, category, city, visits, stats in the directory
+- "general"   → asking for advice, tips, how-to, suggestions, general knowledge questions
 - "unknown"   → anything else
+
+Examples:
+Message: "how to improve my IT business" → general
+Message: "tips for growing my restaurant" → general
+Message: "best marketing strategies" → general
+Message: "show restaurants in Ahmedabad" → search
+Message: "top 5 visited businesses" → search
+Message: "hi" → greeting
+Message: "what can you do" → help
 
 Return ONLY the intent label as a single lowercase word.
 
@@ -337,8 +424,8 @@ Intent:
 """
     try:
         response = ask_llama(prompt)
-        intent = response.strip().lower().strip(".")
-        if intent not in {"greeting", "farewell", "thanks", "help", "search", "unknown"}:
+        intent = response.strip().lower().split()[0].strip(".,!?")
+        if intent not in {"greeting", "farewell", "thanks", "help", "search", "general", "unknown"}:
             return "unknown"
         return intent
     except Exception as e:
@@ -347,42 +434,142 @@ Intent:
 
 
 # ─────────────────────────────────────────────
-# CONVERSATIONAL HANDLER
+# CONVERSATIONAL HANDLER — updated with system prompt
 # ─────────────────────────────────────────────
 def handle_conversational(intent: str, user_msg: str) -> str:
-    persona = """
-You are a friendly assistant for a business directory platform.
-Help users find businesses, services, and companies in their city.
-Keep replies SHORT (2-3 sentences), warm, and conversational.
-Always end with a nudge to search for a business or service.
-"""
+    # ── System prompt — tells LLaMA who it is ──
+    system = (
+        "You are a friendly assistant for a business directory platform. "
+        "You help users find businesses and services in their city. "
+        "Keep replies SHORT (2-3 sentences), warm, and conversational. "
+        "NEVER mention any business data, database, or listings in your reply."
+    )
+
     contexts = {
-        "greeting": "User greeted you. Greet back warmly and offer to help find businesses or services.",
-        "farewell": "User is leaving. Wish them well and invite them back anytime.",
-        "thanks":   "User thanked you. Accept graciously and offer to help further.",
+        "greeting": (
+            "The user greeted you. Reply warmly. "
+            "Say hello and offer to help find businesses or services."
+        ),
+        "farewell": "User is leaving. Wish them well and invite them back.",
+        "thanks":   "User thanked you. Accept graciously and offer further help.",
         "help": (
             "Explain what you can do: find businesses by city/category, "
-            "search services, show top visited businesses, and more. "
-            "Give examples: 'restaurants in Ahmedabad', "
-            "'top 5 most visited businesses', 'IT services in Surat'."
+            "search services, show top visited businesses. "
+            "Examples: 'restaurants in Ahmedabad', 'IT services in Surat'."
         ),
-        "unknown": "Respond helpfully and guide them to search for a business or service.",
+        "unknown": (
+            "Respond warmly and guide them to search for a business. "
+            "Give 1-2 example searches they can try."
+        ),
     }
 
     prompt = f"""
-{persona}
-
 Situation: {contexts.get(intent, contexts['unknown'])}
-
 User Message: "{user_msg}"
-
 Your Reply:
 """
     try:
-        return ask_llama(prompt).strip()
+        return ask_llama(prompt, system=system).strip()
     except Exception as e:
         logger.error("handle_conversational failed: %s", e)
-        return "Hi! I can help you find businesses and services. Try: 'restaurants in Ahmedabad'."
+        return "Hello! I'm here to help you find businesses and services. Try: 'restaurants in Ahmedabad'."
+
+
+# ─────────────────────────────────────────────
+# GENERAL KNOWLEDGE HANDLER — updated with system prompt
+# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# GENERAL KNOWLEDGE HANDLER — template based
+# ─────────────────────────────────────────────
+
+GENERAL_ADVICE = {
+    "it": {
+        "keywords": ["it", "software", "tech", "technology", "computer", "digital", "app", "website"],
+        "tips": [
+            "Build a strong online presence with a professional website and active social media.",
+            "Focus on client retention through excellent after-sales support and follow-ups.",
+            "Stay updated with the latest technologies, certifications, and industry trends.",
+            "Collect and showcase customer reviews, case studies, and success stories.",
+            "Network with other businesses, attend tech events, and explore partnerships.",
+        ]
+    },
+    "restaurant": {
+        "keywords": ["restaurant", "food", "cafe", "catering", "hotel", "dining", "eat"],
+        "tips": [
+            "Maintain consistent food quality and hygiene standards at all times.",
+            "Use social media to showcase your dishes with attractive photos and videos.",
+            "Offer loyalty programs, discounts, and special deals to retain customers.",
+            "Collect customer feedback and act on it to improve your menu and service.",
+            "Partner with food delivery platforms to reach a wider audience.",
+        ]
+    },
+    "retail": {
+        "keywords": ["shop", "store", "retail", "apparel", "clothing", "fashion", "sell"],
+        "tips": [
+            "Keep your inventory updated with trending products and seasonal items.",
+            "Create an engaging storefront both physically and online.",
+            "Run promotions, sales, and loyalty programs to attract repeat customers.",
+            "Use social media marketing to showcase products and reach new buyers.",
+            "Provide excellent customer service to build trust and word-of-mouth referrals.",
+        ]
+    },
+    "marketing": {
+        "keywords": ["marketing", "advertise", "promotion", "brand", "social media", "digital marketing"],
+        "tips": [
+            "Define your target audience clearly before planning any marketing campaign.",
+            "Use a mix of social media, email, and content marketing for best results.",
+            "Create valuable content that educates and engages your potential customers.",
+            "Track your marketing metrics regularly and optimize based on what works.",
+            "Invest in local SEO so customers in your city can find you easily online.",
+        ]
+    },
+    "customer": {
+        "keywords": ["customer", "client", "visitors", "attract", "more customers", "get customers"],
+        "tips": [
+            "Provide exceptional service that makes customers want to return and refer others.",
+            "Ask satisfied customers for reviews and testimonials on Google and social media.",
+            "Run referral programs that reward customers for bringing new clients.",
+            "Stay active on social media and engage with your audience regularly.",
+            "Offer first-time discounts or free trials to attract new customers.",
+        ]
+    },
+    "default": {
+        "keywords": [],
+        "tips": [
+            "Build a strong online presence with a professional website and social media profiles.",
+            "Focus on delivering exceptional customer service to build loyalty and referrals.",
+            "Invest in digital marketing — social media, email, and local SEO.",
+            "Keep your skills, products, and services updated with market trends.",
+            "Collect customer reviews and use feedback to continuously improve.",
+        ]
+    }
+}
+
+
+def handle_general(user_msg: str) -> str:
+    """
+    Answer general business questions using smart templates.
+    No LLaMA call — avoids DB context contamination entirely.
+    """
+    msg = user_msg.lower()
+
+    # ── Match best category ──
+    matched = GENERAL_ADVICE["default"]
+    for category, data in GENERAL_ADVICE.items():
+        if category == "default":
+            continue
+        if any(kw in msg for kw in data["keywords"]):
+            matched = data
+            break
+
+    # ── Build response ──
+    tips = matched["tips"]
+    response = f"Here are 5 great tips to help you:\n\n"
+    for i, tip in enumerate(tips, 1):
+        response += f"{i}. {tip}\n"
+    response += "\nYou can also explore related businesses in your city on our platform for more inspiration!"
+
+    return response.strip()
 
 
 # ─────────────────────────────────────────────
@@ -404,11 +591,21 @@ def chat(user_msg: str) -> str:
     intent = detect_intent(user_msg)
     logger.info("Intent: %s | Message: %s", intent, user_msg)
 
-    # ── Non-search: handle conversationally ──
-    if intent in {"greeting", "farewell", "thanks", "help", "unknown"}:
+    # ── Conversational intents ──
+    if intent in {"greeting", "farewell", "thanks", "help"}:
         return handle_conversational(intent, user_msg)
 
-    # ── Search: try Text2SQL first ──
+    # ── General knowledge / advice ──
+    if intent == "general":
+        return handle_general(user_msg)
+
+    # ── Short/unclear messages ──
+    if intent == "unknown":
+        if len(user_msg.split()) <= 4:
+            return handle_conversational("greeting", user_msg)
+        return handle_general(user_msg)
+
+    # ── Search: Text2SQL first ──
     db_context = ""
 
     sql = generate_sql(user_msg)
@@ -416,7 +613,7 @@ def chat(user_msg: str) -> str:
         logger.info("Generated SQL: %s", sql)
         db_context = run_sql(sql)
 
-    # ── Fallback 1: ORM filter ──
+    # ── Fallback 1: ORM ──
     if not db_context.strip():
         logger.info("SQL returned nothing, trying ORM filter.")
         db_context = get_dynamic_data(user_msg)
@@ -426,8 +623,10 @@ def chat(user_msg: str) -> str:
         logger.info("ORM returned nothing, trying semantic search.")
         db_context = semantic_search(user_msg)
 
+    # ── Fallback 3: No DB results → treat as general question ──
     if not db_context.strip():
-        db_context = "No relevant businesses or services found in the database."
+        logger.info("No DB results found, falling back to general answer.")
+        return handle_general(user_msg)
 
     final_prompt = f"""
 You are a friendly and knowledgeable business directory assistant.
