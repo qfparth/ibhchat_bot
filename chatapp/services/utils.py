@@ -189,9 +189,9 @@ Convert the user question into a JSON object with Django ORM filter keys.
 STRICT RULES:
 - Return ONLY valid JSON — no explanation, no backticks, no markdown.
 - Allowed filter keys:
-    city__city__icontains       → when city is mentioned
-    category__name__icontains   → when a business category is mentioned
-    business_name__icontains    → when a business name is mentioned
+    city__city__icontains       when city is mentioned
+    category__name__icontains   when a business category is mentioned
+    business_name__icontains    when a business name is mentioned
 - Also add a "limit" key (integer) if the user asks for a specific count.
 - If nothing matches, return: {{}}
 
@@ -340,21 +340,168 @@ GENERAL_TRIGGERS = [
     "get more customers", "attract customers",
 ]
 
+# ─────────────────────────────────────────────
+# IBH PLATFORM KNOWLEDGE — for LLaMA guidance
+# ─────────────────────────────────────────────
+IBH_KNOWLEDGE = """
+You are a smart assistant for Indian Business Hub (IBH) — indianbusinesshub.in
 
+ABOUT IBH:
+- Indian Business Hub is a FREE online business directory for Indian businesses
+- It helps businesses get discovered by customers across India
+- Businesses can list for FREE, get verified, and grow digitally
+
+KEY FEATURES:
+1. Free Business Listing — Any business can list on IBH for free
+2. Verified Badge — Upload documents to get a verified badge for trust
+3. Digital Visiting Card — Share business details on WhatsApp, Instagram
+4. Festival & Brand Designs — Auto-create festival promo images with your logo
+5. One-Page Website — Get a simple website for your business, no coding needed
+6. Easy Customer Contact — Customers can call/message businesses directly
+7. IBH Mobile App — Available FREE on Google Play
+
+HOW TO ADD A BUSINESS:
+Step 1: Go to indianbusinesshub.in and click 'Add Business'
+Step 2: Enter business name, phone, email, address, city, category
+Step 3: Set a password and click Finish
+- It is completely FREE
+
+HOW TO GET VERIFIED:
+Step 1: Complete your business profile fully
+Step 2: Upload ID proof, business certificate, GST document
+Step 3: IBH team reviews and approves
+Step 4: Get your Verified Badge
+- Use the IBH App to upload documents from phone camera
+
+IBH APP FEATURES:
+- Festival & Brand Designs with your logo
+- Digital Visiting Card
+- One-Page Website
+- Easy Customer Contact
+- Verification via phone camera
+- Download: play.google.com/store/apps/details?id=com.app.indianbusinesshub
+
+HOW TO SEARCH FOR A BUSINESS:
+- Type the business type and city: example 'restaurants in Ahmedabad'
+- Or type what you need: example 'I need a tailor in Surat'
+- Browse by category and city on the website
+
+CONTACT IBH:
+- Email: info.indianbusinesshub@gmail.com
+- Phone: +91 8000841620
+- Address: 209-A, Satva Icon, Vastral, Ahmedabad, Gujarat 382418
+
+TESTIMONIALS:
+- Raigo Ceramica: Got inquiries within a week of verifying
+- Accufix: Got bulk order calls for precision tools
+- U Smile: Toy store got more orders after listing
+
+TIPS FOR BUSINESS OWNERS ON IBH:
+- Complete your profile 100% for 3x more views
+- Add services in detail so customers find you by keywords
+- Share your IBH profile on WhatsApp and Instagram
+- Use festival designs from the app on social media
+- Get verified to build trust with customers
+"""
+
+# ─────────────────────────────────────────────
+# GUIDANCE TRIGGER KEYWORDS
+# ─────────────────────────────────────────────
+GUIDANCE_TRIGGERS = [
+    # platform questions
+    "what is ibh", "about ibh", "what is indian business hub",
+    "what is this website", "what does ibh do", "tell me about ibh",
+    "what is indianbusinesshub",
+    # listing
+    "how to add", "add my business", "list my business",
+    "how to list", "how to register", "get listed", "join ibh",
+    "add business", "list business", "register business",
+    # verification
+    "how to get verified", "get verified", "verified badge",
+    "verify my business", "verification process", "verify business",
+    # app
+    "ibh app", "download app", "install app", "app features",
+    "mobile app", "what does the app", "app benefits",
+    # benefits
+    "why use ibh", "benefits of ibh", "is ibh free", "free listing",
+    "why list on ibh", "advantages of ibh", "why ibh",
+    # contact
+    "contact ibh", "ibh contact", "ibh phone", "ibh email",
+    "ibh address", "ibh location", "ibh support",
+    # new user
+    "i am new", "new user", "how to use ibh", "getting started",
+    "first time", "where do i start", "i just joined",
+    "help me get started", "how to use this",
+    # search help
+    "how to search", "how to find business", "how to find",
+    "how do i search", "how to look for",
+    # tips
+    "tips for ibh", "how to grow on ibh", "get more customers ibh",
+    "how to get more views", "improve my listing",
+]
+
+
+def is_guidance_question(user_msg: str) -> bool:
+    """Check if user is asking about IBH platform guidance."""
+    msg = user_msg.lower().strip()
+    return any(trigger in msg for trigger in GUIDANCE_TRIGGERS)
+
+
+# ─────────────────────────────────────────────
+# DYNAMIC GUIDANCE HANDLER — LLaMA3 powered
+# ─────────────────────────────────────────────
+def handle_guidance(user_msg: str) -> str:
+    """
+    Uses LLaMA3 to dynamically answer any IBH platform guidance question.
+    LLaMA3 reads the IBH knowledge base and gives accurate, friendly answers.
+    """
+    system = (
+        "You are a helpful and friendly assistant for Indian Business Hub (IBH). "
+        "You guide users on how to use the IBH platform accurately. "
+        "Use the IBH knowledge provided to answer. "
+        "Keep answers clear, friendly, and use emojis where appropriate. "
+        "Never make up information not in the knowledge base. "
+        "If the question is not in the knowledge base, say you are not sure and suggest contacting IBH support."
+    )
+
+    prompt = f"""
+{IBH_KNOWLEDGE}
+
+User Question: {user_msg}
+
+Answer the user's question accurately based on the IBH knowledge above.
+Be friendly, use emojis, keep it clear and helpful.
+
+Answer:
+"""
+    try:
+        return ask_llama(prompt, system=system).strip()
+    except Exception as e:
+        logger.error("handle_guidance failed: %s", e)
+        return (
+            "I'm here to help with Indian Business Hub! 😊\n\n"
+            "For any questions, contact us:\n"
+            "📧 info.indianbusinesshub@gmail.com\n"
+            "📞 +91 8000841620"
+        )
+
+
+# ─────────────────────────────────────────────
+# FAST INTENT DETECTION
+# ─────────────────────────────────────────────
 def fast_intent(user_msg: str) -> str | None:
     msg = user_msg.lower().strip()
+    msg_clean = msg.strip("?!., ")
 
-    # ── Exact match first ──
-    if msg in GREETING_WORDS:
+    if msg_clean in GREETING_WORDS or msg in GREETING_WORDS:
         return "greeting"
-    if msg in FAREWELL_WORDS:
+    if msg_clean in FAREWELL_WORDS or msg in FAREWELL_WORDS:
         return "farewell"
-    if msg in THANKS_WORDS:
+    if msg_clean in THANKS_WORDS or msg in THANKS_WORDS:
         return "thanks"
-    if msg in HELP_WORDS:
+    if msg_clean in HELP_WORDS or msg in HELP_WORDS:
         return "help"
 
-    # ── Partial / starts-with match ──
     greeting_triggers = [
         "hi", "hello", "hey", "good morning", "good afternoon",
         "good evening", "good night", "namaste", "namaskar", "greetings"
@@ -364,24 +511,28 @@ def fast_intent(user_msg: str) -> str | None:
     help_triggers     = ["what can you do", "how to use", "what do you do"]
 
     for trigger in greeting_triggers:
-        if msg == trigger or msg.startswith(trigger + " ") or trigger in msg:
+        if msg_clean == trigger or msg_clean.startswith(trigger + " ") or trigger in msg_clean:
             return "greeting"
 
     for trigger in farewell_triggers:
-        if msg == trigger or msg.startswith(trigger):
+        if msg_clean == trigger or msg_clean.startswith(trigger):
             return "farewell"
 
     for trigger in thanks_triggers:
-        if trigger in msg:
+        if trigger in msg_clean:
             return "thanks"
 
     for trigger in help_triggers:
-        if trigger in msg:
+        if trigger in msg_clean:
             return "help"
+
+    # ── Guidance check — BEFORE general ──
+    if is_guidance_question(user_msg):
+        return "guidance"
 
     # ── General knowledge check — BEFORE LLaMA ──
     for trigger in GENERAL_TRIGGERS:
-        if msg.startswith(trigger) or f" {trigger} " in f" {msg} ":
+        if msg_clean.startswith(trigger) or f" {trigger} " in f" {msg_clean} ":
             return "general"
 
     return None
@@ -397,25 +548,30 @@ def detect_intent(user_msg: str) -> str:
         return quick
 
     prompt = f"""
-You are an intent classifier for a business directory chatbot.
+You are an intent classifier for a business directory chatbot called Indian Business Hub (IBH).
 
 Classify the user message into exactly one of these intents:
-- "greeting"  → hi, hello, good morning, hey, etc.
-- "farewell"  → bye, goodbye, see you, take care, etc.
-- "thanks"    → thank you, thanks, thx, appreciated, etc.
-- "help"      → what can you do, how to use, help me, etc.
-- "search"    → looking for a business, service, category, city, visits, stats in the directory
-- "general"   → asking for advice, tips, how-to, suggestions, general knowledge questions
-- "unknown"   → anything else
+- "greeting"  -> hi, hello, good morning, hey, etc.
+- "farewell"  -> bye, goodbye, see you, take care, etc.
+- "thanks"    -> thank you, thanks, thx, appreciated, etc.
+- "help"      -> what can you do, how to use, help me, etc.
+- "guidance"  -> questions about IBH platform: how to add business, verification, app features, benefits, contact IBH, how to use the website, tips for IBH
+- "search"    -> looking for a business, service, category, city, visits, stats in the directory
+- "general"   -> asking for advice, tips, how-to, suggestions, general business knowledge
+- "unknown"   -> anything else
 
 Examples:
-Message: "how to improve my IT business" → general
-Message: "tips for growing my restaurant" → general
-Message: "best marketing strategies" → general
-Message: "show restaurants in Ahmedabad" → search
-Message: "top 5 visited businesses" → search
-Message: "hi" → greeting
-Message: "what can you do" → help
+Message: "how to improve my IT business" -> general
+Message: "tips for growing my restaurant" -> general
+Message: "show restaurants in Ahmedabad" -> search
+Message: "hi" -> greeting
+Message: "how to add my business on IBH" -> guidance
+Message: "how to get verified" -> guidance
+Message: "what does the IBH app do" -> guidance
+Message: "is IBH free" -> guidance
+Message: "what is Indian Business Hub" -> guidance
+Message: "how to search for a business" -> guidance
+Message: "how to get more customers on IBH" -> guidance
 
 Return ONLY the intent label as a single lowercase word.
 
@@ -425,7 +581,7 @@ Intent:
     try:
         response = ask_llama(prompt)
         intent = response.strip().lower().split()[0].strip(".,!?")
-        if intent not in {"greeting", "farewell", "thanks", "help", "search", "general", "unknown"}:
+        if intent not in {"greeting", "farewell", "thanks", "help", "guidance", "search", "general", "unknown"}:
             return "unknown"
         return intent
     except Exception as e:
@@ -434,32 +590,38 @@ Intent:
 
 
 # ─────────────────────────────────────────────
-# CONVERSATIONAL HANDLER — updated with system prompt
+# CONVERSATIONAL HANDLER
 # ─────────────────────────────────────────────
 def handle_conversational(intent: str, user_msg: str) -> str:
-    # ── System prompt — tells LLaMA who it is ──
+    COMPANY_NAME = "Indian Business Hub"
+
     system = (
-        "You are a friendly assistant for a business directory platform. "
+        f"You are a friendly assistant for {COMPANY_NAME} (IBH). "
         "You help users find businesses and services in their city. "
-        "Keep replies SHORT (2-3 sentences), warm, and conversational. "
+        "Always use emojis to keep replies warm and friendly. "
+        "Keep replies SHORT (2-3 sentences) and conversational. "
         "NEVER mention any business data, database, or listings in your reply."
     )
 
     contexts = {
         "greeting": (
-            "The user greeted you. Reply warmly. "
-            "Say hello and offer to help find businesses or services."
+            f"The user greeted you. Reply warmly with emojis. "
+            f"Start with: 'Hello! Welcome to {COMPANY_NAME}! 😊' "
+            f"Then offer to help — find businesses OR guide them on using IBH. "
+            f"Example: 'I can help you find businesses or guide you on how to use IBH!'"
         ),
-        "farewell": "User is leaving. Wish them well and invite them back.",
-        "thanks":   "User thanked you. Accept graciously and offer further help.",
+        "farewell": "User is leaving. Wish them well with emojis and invite them back.",
+        "thanks":   "User thanked you. Accept graciously with emojis and offer further help.",
         "help": (
-            "Explain what you can do: find businesses by city/category, "
-            "search services, show top visited businesses. "
-            "Examples: 'restaurants in Ahmedabad', 'IT services in Surat'."
+            f"Explain what you can do for {COMPANY_NAME}: "
+            "1. Find businesses by city and category "
+            "2. Guide users on how to use IBH platform "
+            "3. Help business owners list and verify their business "
+            "Use emojis. Keep it short and friendly."
         ),
         "unknown": (
-            "Respond warmly and guide them to search for a business. "
-            "Give 1-2 example searches they can try."
+            "Respond warmly with emojis. "
+            "Ask if they want to find a business OR need help using the IBH platform."
         ),
     }
 
@@ -472,16 +634,12 @@ Your Reply:
         return ask_llama(prompt, system=system).strip()
     except Exception as e:
         logger.error("handle_conversational failed: %s", e)
-        return "Hello! I'm here to help you find businesses and services. Try: 'restaurants in Ahmedabad'."
+        return f"Hello! Welcome to {COMPANY_NAME}! 😊 I can help you find businesses or guide you on using IBH. Just ask!"
 
 
-# ─────────────────────────────────────────────
-# GENERAL KNOWLEDGE HANDLER — updated with system prompt
-# ─────────────────────────────────────────────
 # ─────────────────────────────────────────────
 # GENERAL KNOWLEDGE HANDLER — template based
 # ─────────────────────────────────────────────
-
 GENERAL_ADVICE = {
     "it": {
         "keywords": ["it", "software", "tech", "technology", "computer", "digital", "app", "website"],
@@ -553,7 +711,6 @@ def handle_general(user_msg: str) -> str:
     """
     msg = user_msg.lower()
 
-    # ── Match best category ──
     matched = GENERAL_ADVICE["default"]
     for category, data in GENERAL_ADVICE.items():
         if category == "default":
@@ -562,9 +719,8 @@ def handle_general(user_msg: str) -> str:
             matched = data
             break
 
-    # ── Build response ──
     tips = matched["tips"]
-    response = f"Here are 5 great tips to help you:\n\n"
+    response = "Here are 5 great tips to help you:\n\n"
     for i, tip in enumerate(tips, 1):
         response += f"{i}. {tip}\n"
     response += "\nYou can also explore related businesses in your city on our platform for more inspiration!"
@@ -578,11 +734,12 @@ def handle_general(user_msg: str) -> str:
 def chat(user_msg: str) -> str:
     """
     Full pipeline:
-      1. Detect intent → handle conversational if not search
-      2. Text2SQL → run SQL → get DB context  (primary)
-      3. ORM filter fallback                   (secondary)
-      4. Semantic search fallback              (tertiary)
-      5. Feed context to LLaMA → final answer
+      1. Detect intent
+      2. guidance   → LLaMA3 dynamically answers IBH platform questions
+      3. greeting / farewell / thanks / help → conversational
+      4. general    → template tips
+      5. search     → SQL → ORM → semantic → LLaMA final answer
+      6. unknown    → fallback
     """
     user_msg = user_msg.strip()
     if not user_msg:
@@ -590,6 +747,11 @@ def chat(user_msg: str) -> str:
 
     intent = detect_intent(user_msg)
     logger.info("Intent: %s | Message: %s", intent, user_msg)
+    print(f"[CHAT] Intent: {intent} | Message: {user_msg}")
+
+    # ── Dynamic IBH guidance — LLaMA3 powered ──
+    if intent == "guidance":
+        return handle_guidance(user_msg)
 
     # ── Conversational intents ──
     if intent in {"greeting", "farewell", "thanks", "help"}:
@@ -623,13 +785,15 @@ def chat(user_msg: str) -> str:
         logger.info("ORM returned nothing, trying semantic search.")
         db_context = semantic_search(user_msg)
 
-    # ── Fallback 3: No DB results → treat as general question ──
+    # ── Fallback 3: No DB results → guidance check ──
     if not db_context.strip():
+        if is_guidance_question(user_msg):
+            return handle_guidance(user_msg)
         logger.info("No DB results found, falling back to general answer.")
         return handle_general(user_msg)
 
     final_prompt = f"""
-You are a friendly and knowledgeable business directory assistant.
+You are a friendly and knowledgeable assistant for Indian Business Hub (IBH).
 
 Use ONLY the data below to answer the user's question.
 - Present results clearly and in a readable format.

@@ -1,338 +1,436 @@
 <!DOCTYPE html>
-<html>
-   <head>
-      <title>AI Chatbot</title>
-      <meta charset="UTF-8">
+<html lang="en">
+<head>
+   <title>IBH Assistant – Indian Business Hub</title>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-      <style>
+   <style>
+      :root {
+         --primary: #ff6b2c;
+         --primary-dark: #e05520;
+         --secondary: #1a1f36;
+         --accent: #2d7ef7;
+         --bg: #f0f4ff;
+         --white: #ffffff;
+         --border: #e2e8f4;
+         --text: #1a1f36;
+         --muted: #6b7280;
+         --success: #10b981;
+         --card-radius: 16px;
+         --step-bg: #f8faff;
+      }
 
+      * { box-sizing: border-box; margin: 0; padding: 0; }
 
-            /* AI Loading Spinner */
+      body {
+         font-family: 'Inter', sans-serif;
+         background: linear-gradient(135deg, #1a1f36 0%, #2d3561 50%, #ff6b2c22 100%);
+         min-height: 100vh;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         padding: 10px;
+      }
 
-         .loader{
-         display:flex;
-         align-items:center;
-         gap:8px;
-         font-size:13px;
-         color:#555;
-         }
+      .chat-container {
+         width: 100%;
+         max-width: 900px;
+         height: 95vh;
+         background: var(--white);
+         border-radius: 12px;
+         display: flex;
+         flex-direction: column;
+         box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+         overflow: hidden;
+      }
 
-         .spinner{
-         width:14px;
-         height:14px;
-         border:2px solid #ccc;
-         border-top:2px solid #667eea;
-         border-radius:50%;
-         animation:spin 0.7s linear infinite;
-         }
+      .chat-header {
+         background: linear-gradient(135deg, var(--secondary), #2d3561);
+         padding: 16px 20px;
+         display: flex;
+         align-items: center;
+         gap: 14px;
+         border-bottom: 2px solid var(--primary);
+         flex-shrink: 0;
+      }
 
-         @keyframes spin{
-         0%{transform:rotate(0deg);}
-         100%{transform:rotate(360deg);}
-         }
+      .header-avatar {
+         width: 46px; height: 46px;
+         border-radius: 12px;
+         background: linear-gradient(135deg, var(--primary), #ff9500);
+         display: flex; align-items: center; justify-content: center;
+         font-size: 22px; flex-shrink: 0;
+         box-shadow: 0 4px 12px rgba(255,107,44,0.4);
+      }
 
-         body{
-         margin:0;
-         font-family:Segoe UI,Arial;
-         background:linear-gradient(135deg,#667eea,#764ba2);
-         height:100vh;
-         display:flex;
-         justify-content:center;
-         align-items:center;
-         }
+      .header-info h2 { color: var(--white); font-size: 16px; font-weight: 700; }
 
-         /* container */
+      .header-status { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
 
-         .chat-container{
-         width:100%;
-         max-width:900px;
-         height:95vh;
-         background:white;
-         border-radius:12px;
-         display:flex;
-         flex-direction:column;
-         box-shadow:0 20px 50px rgba(0,0,0,0.3);
-         overflow:hidden;
-         }
+      .status-dot {
+         width: 8px; height: 8px;
+         background: var(--success);
+         border-radius: 50%;
+         animation: statusPulse 2s infinite;
+      }
 
-         /* chat area */
+      @keyframes statusPulse {
+         0%, 100% { opacity: 1; transform: scale(1); }
+         50% { opacity: 0.6; transform: scale(1.2); }
+      }
 
-         .chat-box{
-         flex:1;
-         overflow-y:auto;
-         padding:20px;
-         background:#f7f8fc;
-         scroll-behavior:smooth;
-         }
+      .header-actions { margin-left: auto; }
 
-         /* message */
+      .btn-outline {
+         background: transparent;
+         border: 1px solid rgba(255,255,255,0.25);
+         color: #a0aec0;
+         border-radius: 8px;
+         padding: 6px 12px;
+         font-size: 12px;
+         cursor: pointer;
+         transition: all 0.2s;
+         font-family: 'Inter', sans-serif;
+      }
+      .btn-outline:hover { background: rgba(255,255,255,0.1); color: var(--white); }
 
-         .message{
-         padding:12px 16px;
-         border-radius:16px;
-         margin-bottom:12px;
-         max-width:70%;
-         font-size:14px;
-         line-height:1.5;
-         animation:pop .25s ease;
-         }
+      .chat-box {
+         flex: 1;
+         overflow-y: auto;
+         padding: 20px 18px;
+         background: var(--bg);
+         scroll-behavior: smooth;
+      }
+      .chat-box::-webkit-scrollbar { width: 5px; }
+      .chat-box::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
 
-         /* animation */
+      .message {
+         padding: 12px 16px;
+         border-radius: 16px;
+         margin-bottom: 12px;
+         max-width: 70%;
+         font-size: 14px;
+         line-height: 1.5;
+         animation: pop 0.25s ease;
+         word-break: break-word;
+      }
 
-         @keyframes pop{
-         0%{opacity:0;transform:scale(.8) translateY(10px)}
-         100%{opacity:1;transform:scale(1) translateY(0)}
-         }
+      @keyframes pop {
+         0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+         100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
 
-         /* user */
+      .user {
+         background: linear-gradient(135deg, var(--primary), #ff9500);
+         color: white;
+         margin-left: auto;
+         border-bottom-right-radius: 4px;
+         box-shadow: 0 3px 12px rgba(255,107,44,0.3);
+      }
 
-         .user{
-         background:#25d366;
-         color:white;
-         margin-left:auto;
-         border-bottom-right-radius:4px;
-         }
+      .bot {
+         background: var(--white);
+         border: 1px solid var(--border);
+         border-bottom-left-radius: 4px;
+         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+         color: var(--text);
+      }
 
-         /* bot */
+      .welcome-card {
+         background: linear-gradient(135deg, #1a1f36, #2d3561);
+         border-radius: var(--card-radius);
+         padding: 22px 20px;
+         margin-bottom: 18px;
+         color: white;
+         animation: pop 0.3s ease;
+      }
+      .welcome-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+      .welcome-card p { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.6; margin-bottom: 14px; }
 
-         .bot{
-         background:white;
-         border:1px solid #eee;
-         border-bottom-left-radius:4px;
-         }
+      .quick-actions-label {
+         font-size: 12px; color: rgba(255,255,255,0.6);
+         margin-bottom: 10px; font-weight: 500;
+         text-transform: uppercase; letter-spacing: 0.5px;
+      }
 
-         /* input */
+      .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 
-         .input-area{
-         display:flex;
-         padding:12px;
-         border-top:1px solid #eee;
-         background:white;
-         }
+      .chip {
+         background: rgba(255,255,255,0.12);
+         border: 1px solid rgba(255,255,255,0.2);
+         color: white; border-radius: 20px;
+         padding: 7px 14px; font-size: 12px;
+         cursor: pointer; transition: all 0.2s;
+         white-space: nowrap; font-family: 'Inter', sans-serif;
+      }
+      .chip:hover {
+         background: var(--primary); border-color: var(--primary);
+         transform: translateY(-2px);
+         box-shadow: 0 4px 12px rgba(255,107,44,0.4);
+      }
 
-         input{
-         flex:1;
-         padding:12px;
-         border:none;
-         border-radius:25px;
-         background:#f1f1f1;
-         font-size:14px;
-         outline:none;
-         }
+      /* ── THINKING DOTS (Claude-style) ── */
+      .thinking-dots { display: flex; gap: 5px; align-items: center; }
+      .thinking-dots span {
+         width: 8px; height: 8px; border-radius: 50%;
+         background: #cbd5e0;
+         display: inline-block;
+         animation: claudeBlink 1.4s ease-in-out infinite;
+      }
+      .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes claudeBlink {
+         0%, 60%, 100% { opacity: 0.25; transform: scale(0.8); }
+         30% { opacity: 1; transform: scale(1.15); }
+      }
 
-         button{
-         margin-left:10px;
-         padding:12px 20px;
-         border:none;
-         background:#667eea;
-         color:white;
-         border-radius:25px;
-         cursor:pointer;
-         transition:.2s;
-         }
+      /* dots + label row */
+      .dots-label { display: flex; align-items: center; gap: 10px; }
+      .dots-label .thinking-dots span { background: #a0aec0; }
+      .dots-label-text { font-size: 13px; color: #6b7280; }
 
-         button:hover{
-         transform:scale(1.05);
-         }
+      /* ── SHIMMER (while writing) ── */
+      .shimmer-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
+      .shimmer-line {
+         height: 9px; border-radius: 6px;
+         background: linear-gradient(90deg, #efefef 25%, #e0e0e0 50%, #efefef 75%);
+         background-size: 200% 100%;
+         animation: shimmer 1.5s infinite;
+      }
+      @keyframes shimmer {
+         0%   { background-position: 200% 0; }
+         100% { background-position: -200% 0; }
+      }
 
-         /* thinking dots */
+      .input-area {
+         display: flex; padding: 12px;
+         border-top: 1px solid var(--border);
+         background: var(--white);
+         gap: 10px; flex-shrink: 0; align-items: center;
+      }
 
-         .thinking{
-         display:flex;
-         align-items:center;
-         gap:5px;
-         font-size:13px;
-         color:#666;
-         }
+      input#question {
+         flex: 1; padding: 12px 16px;
+         border: 1.5px solid var(--border);
+         border-radius: 25px; background: var(--bg);
+         font-size: 14px; outline: none;
+         font-family: 'Inter', sans-serif;
+         color: var(--text); transition: border 0.2s;
+      }
+      input#question:focus { border-color: var(--primary); background: var(--white); }
+      input#question::placeholder { color: #a0aec0; }
 
-         .dot{
-         width:6px;
-         height:6px;
-         background:#999;
-         border-radius:50%;
-         animation:blink 1.2s infinite;
-         }
+      #send-btn {
+         width: 46px; height: 46px; border: none;
+         background: linear-gradient(135deg, var(--primary), #ff9500);
+         color: white; border-radius: 50%; cursor: pointer;
+         transition: all 0.2s; display: flex;
+         align-items: center; justify-content: center;
+         font-size: 18px; flex-shrink: 0;
+         box-shadow: 0 3px 12px rgba(255,107,44,0.35);
+      }
+      #send-btn:hover { transform: scale(1.1); box-shadow: 0 5px 18px rgba(255,107,44,0.5); }
 
-         .dot:nth-child(2){animation-delay:.2s;}
-         .dot:nth-child(3){animation-delay:.4s;}
+      @media (max-width: 600px) {
+         .chat-container { height: 100vh; border-radius: 0; }
+         .message { max-width: 85%; }
+         .chip { font-size: 11px; padding: 6px 11px; }
+      }
+   </style>
+</head>
 
-         @keyframes blink{
-         0%,80%,100%{opacity:0}
-         40%{opacity:1}
-         }
+<body>
+<div class="chat-container">
 
-         /* mobile */
-
-         @media(max-width:600px){
-
-         .chat-container{
-         height:100vh;
-         border-radius:0;
-         }
-
-         .message{
-         max-width:85%;
-         }
-
-         }
-
-      </style>
-   </head>
-
-   <body>
-      <div class="chat-container">
-         <div class="chat-box" id="chat-box"></div>
-         <div class="input-area">
-            <input id="question" placeholder="Type message">
-            <button onclick="sendMessage()">Send</button>
+   <!-- HEADER -->
+   <div class="chat-header">
+      <div class="header-avatar">🏢</div>
+      <div class="header-info">
+         <h2>IBH Assistant</h2>
+         <div class="header-status">
+            <div class="status-dot"></div>
+            <span style="color:#a0aec0;font-size:12px;">Online • Indian Business Hub</span>
          </div>
       </div>
+      <div class="header-actions">
+         <button class="btn-outline" onclick="clearChat()">Clear Chat</button>
+      </div>
+   </div>
 
-      <script>
-         let input = document.getElementById("question")
+   <!-- CHAT BOX -->
+   <div class="chat-box" id="chat-box">
+      <div class="welcome-card" id="welcome-card">
+         <h3>👋 Namaste! Welcome to IBH</h3>
+         <p>
+            I'm your Indian Business Hub assistant. I can help you
+            <strong>add your business</strong>, <strong>find businesses</strong>,
+            get <strong>verified</strong>, use app features, and more!
+         </p>
+         <div class="quick-actions-label">⚡ Quick Actions — tap to get started:</div>
+         <div class="chip-grid">
+            <div class="chip" onclick="quickMsg('How to add my business?')">📋 Add Business</div>
+            <div class="chip" onclick="quickMsg('How to get verified?')">🛡️ Get Verified</div>
+            <div class="chip" onclick="quickMsg('How to download IBH app?')">📱 Download App</div>
+            <div class="chip" onclick="quickMsg('What is IBH?')">🏢 About IBH</div>
+            <div class="chip" onclick="quickMsg('Is IBH free?')">💰 Is It Free?</div>
+            <div class="chip" onclick="quickMsg('How to create festival design?')">🎨 Festival Design</div>
+            <div class="chip" onclick="quickMsg('How to find businesses?')">🔍 Search Business</div>
+            <div class="chip" onclick="quickMsg('How to contact IBH?')">📬 Contact IBH</div>
+         </div>
+      </div>
+   </div>
 
-         // 🔥 pagination state
-         let currentPage = 1
+   <!-- INPUT -->
+   <div class="input-area">
+      <input id="question" placeholder="Ask anything about IBH... e.g. How to add my business?" autocomplete="off">
+      <button id="send-btn" onclick="sendMessage()" title="Send">➤</button>
+   </div>
 
-         input.addEventListener("keypress", function(e){
-            if(e.key==="Enter") sendMessage()
-         })
+</div>
 
-         function sendMessage(){
-            let question = input.value
-            if(question.trim()=="") return
+<script>
+   let input      = document.getElementById("question")
+   let chatBox    = document.getElementById("chat-box")
+   let currentPage = 1
 
-            let chatBox = document.getElementById("chat-box")
+   input.addEventListener("keypress", e => { if (e.key === "Enter") sendMessage() })
 
-            // 👉 user message
-            let user = document.createElement("div")
-            user.className="message user"
-            user.innerText=question
-            chatBox.appendChild(user)
+   function quickMsg(text) { input.value = text; sendMessage() }
 
-            input.value=""
-            scrollBottom()
+   function clearChat() {
+      Array.from(chatBox.children).forEach(el => { if (el.id !== "welcome-card") el.remove() })
+      const wc = document.getElementById("welcome-card")
+      if (wc) wc.style.display = ""
+   }
 
-            // 👉 bot loading
-            let bot=document.createElement("div")
-            bot.className="message bot"
+   // ── LABEL per query type ──────────────────────────────────────
+   function getLabel(msg, apiPath) {
+      if (apiPath === '/categories/')                              return 'Fetching categories'
+      if (/find|search|near|city|location/.test(msg))             return 'Searching businesses'
+      if (/verif|badge|trust|certif/.test(msg))                   return 'Checking verification'
+      if (/download|app|install|play store/.test(msg))            return 'Fetching app details'
+      if (/festival|design|poster|banner/.test(msg))              return 'Loading design info'
+      if (/price|cost|free|paid|plan/.test(msg))                  return 'Checking pricing'
+      if (msg.length > 40 || /how|what|explain|why|tell/.test(msg)) return 'Analyzing your question'
+      return 'Thinking'
+   }
 
-            bot.innerHTML=`
-            <div class="loader">
-               <div class="spinner"></div>
-               AI is thinking...
-            </div>
-            `
-            chatBox.appendChild(bot)
-            scrollBottom()
+   // ── STEP 1 : dots only ────────────────────────────────────────
+   function showDots(el) {
+      el.innerHTML = `
+         <div class="thinking-dots">
+            <span></span><span></span><span></span>
+         </div>`
+   }
 
-            let msg = question.toLowerCase()
+   // ── STEP 2 : dots + label ─────────────────────────────────────
+   function showDotsLabel(el, label) {
+      el.innerHTML = `
+         <div class="dots-label">
+            <div class="thinking-dots"><span></span><span></span><span></span></div>
+            <span class="dots-label-text">${label}</span>
+         </div>`
+   }
 
-            // 🔥 SHOW CATEGORIES
-            if(msg.includes("categories")){
-               currentPage = 1
-               loadCategories(bot)
-               return
-            }
+   // ── STEP 3 : shimmer (writing) ────────────────────────────────
+   function showShimmer(el) {
+      el.innerHTML = `
+         <div class="shimmer-wrap">
+            <div class="shimmer-line" style="width:92%"></div>
+            <div class="shimmer-line" style="width:74%"></div>
+            <div class="shimmer-line" style="width:83%"></div>
+         </div>`
+   }
 
-         /* if(msg.includes("business")){
+   // ── STEP 4 : type out text ────────────────────────────────────
+   function typeEffect(text, el) {
+      let i = 0
+      el.innerHTML = ""
+      let t = setInterval(() => {
+         el.innerHTML += text[i] === "\n" ? "<br>" : text[i]
+         i++
+         if (i >= text.length) clearInterval(t)
+         scrollBottom()
+      }, 16)
+   }
 
-               fetch("/chatbot/?msg=" + encodeURIComponent(question))
-               .then(res=>res.json())
-               .then(data=>{
-                  bot.innerHTML=""
+   // ─────────────────────────────────────────────────────────────
+   function sendMessage() {
+      let question = input.value.trim()
+      if (!question) return
 
-                  let text = data.reply || "No response"
+      const wc = document.getElementById("welcome-card")
+      if (wc) wc.style.display = "none"
 
-                  typeEffect(text, bot)
-               })
-               .catch(err=>{
-                  bot.innerHTML="Error ❌"
-                  console.log(err)
-               })
+      // user bubble
+      let userEl = document.createElement("div")
+      userEl.className = "message user"
+      userEl.innerText = question
+      chatBox.appendChild(userEl)
+      input.value = ""
+      scrollBottom()
 
-               return
-         }*/
+      // bot bubble
+      let bot = document.createElement("div")
+      bot.className = "message bot"
+      chatBox.appendChild(bot)
 
-            // 🔥 NEXT PAGE
-            if(msg.includes("next")){
-               currentPage++
-               loadCategories(bot)
-               return
-            }
+      let msg = question.toLowerCase()
 
-            // 🔥 PREVIOUS PAGE
-            if(msg.includes("prev")){
-               if(currentPage > 1){
-                     currentPage--
-               }
-               loadCategories(bot)
-               return
-            }
+      // categories shortcut
+      if (msg.includes("categories")) {
+         currentPage = 1
+         runLoader(bot, 'Fetching categories', () => loadCategories(bot))
+         return
+      }
+      if (msg.includes("next")) { currentPage++; loadCategories(bot); return }
+      if (msg.includes("prev")) { if (currentPage > 1) currentPage--; loadCategories(bot); return }
 
-            // 🤖 NORMAL AI CALL
-            fetch("/chatbot/?msg=" + encodeURIComponent(question))
-            .then(res=>res.json())
-            .then(data=>{
-               bot.innerHTML=""
-               let text = data.reply || "No response from server"
-               typeEffect(text, bot)
-            })
-         }
-
-
-         // 🔥 CATEGORY LOADER (AI + DB MIX)
-         function loadCategories(bot){
-
-            fetch(`/categories/?page=${currentPage}`)
-            .then(res=>res.json())
-            .then(data=>{
-
-               let totalPages = Math.ceil(data.total / 10)
-
-               // 👉 AI style formatting text
-               let rawText = `Total Categories: ${data.total}
-         Page: ${currentPage}/${totalPages}
-
-         Categories:
-         `
-
-               data.categories.forEach(c=>{
-                     rawText += "- " + c + "\n"
-               })
-
-               rawText += "\nType 'next' or 'prev' to navigate."
-
-               // 👉 typing effect
-               bot.innerHTML=""
-               typeEffect(rawText, bot)
-            })
-            .catch(err=>{
-               bot.innerHTML="Error loading categories ❌"
-               console.log(err)
-            })
-         }
-
-         //  typing animation
-         function typeEffect(text,element){
-            let i=0
-            let typing=setInterval(function(){
-               element.innerHTML += text[i] === "\n" ? "<br>" : text[i]
-               i++
-
-               if(i>=text.length){
-                     clearInterval(typing)
-               }
+      // normal API call
+      let label = getLabel(msg, '')
+      runLoader(bot, label, () => {
+         fetch("/chatbot/?msg=" + encodeURIComponent(question))
+            .then(res => res.json())
+            .then(data => {
+               showShimmer(bot)
                scrollBottom()
-            },20)
-         }
+               setTimeout(() => typeEffect(data.reply || "No response from server.", bot), 500)
+            })
+            .catch(() => {
+               bot.innerHTML = "<span style='color:#e53e3e;'>⚠️ Connection error. Please try again.</span>"
+            })
+      })
+   }
 
-         // 📜 scroll
-         function scrollBottom(){
-            let chatBox=document.getElementById("chat-box")
-            chatBox.scrollTop=chatBox.scrollHeight
-         }
-         </script>
+   // runs: dots → dots+label → then callback (fetch starts)
+   function runLoader(el, label, callback) {
+      showDots(el)
+      scrollBottom()
+      setTimeout(() => {
+         showDotsLabel(el, label)
+         scrollBottom()
+         callback()           // fire fetch while label is showing
+      }, 500)
+   }
 
-   </body>
+   function loadCategories(bot) {
+      fetch(`/categories/?page=${currentPage}`)
+         .then(res => res.json())
+         .then(data => {
+            let totalPages = Math.ceil(data.total / 10)
+            let rawText = `Total Categories: ${data.total}\nPage: ${currentPage}/${totalPages}\n\nCategories:\n`
+            data.categories.forEach(c => { rawText += "- " + c + "\n" })
+            rawText += "\nType 'next' or 'prev' to navigate."
+            showShimmer(bot)
+            setTimeout(() => typeEffect(rawText, bot), 500)
+         })
+         .catch(() => { bot.innerHTML = "⚠️ Error loading categories." })
+   }
+
+   function scrollBottom() { chatBox.scrollTop = chatBox.scrollHeight }
+</script>
+
+</body>
 </html>
