@@ -142,7 +142,6 @@ class User(models.Model):
     def is_deleted(self):
         return self.deleted_at is not None
 
-
 # ─────────────────────────────────────────────
 # SERVICE
 # ─────────────────────────────────────────────
